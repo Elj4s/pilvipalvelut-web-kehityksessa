@@ -1,5 +1,9 @@
 import { useState, useEffect } from 'react'
 import './App.css'
+import { onAuthStateChanged } from 'firebase/auth'
+import type { User } from 'firebase/auth'
+import LoginForm from './LoginForm'
+import { auth, logout } from './authService'
 
 function luoKoodinimi(): string {
   const elaimeet = ['Panda', 'Tiger', 'Fox', 'Dragon', 'Wolf']
@@ -13,26 +17,45 @@ function luoKoodinimi(): string {
 }
 
 function App() {
+  const [user, setUser] = useState<User | null>(null)
   const [koodinimi, asetaKoodinimi] = useState('')
 
   useEffect(() => {
-    let tallennettuNimi = localStorage.getItem('codename')
+    const unsubscribe = onAuthStateChanged(auth, (firebaseUser) => {
+      setUser(firebaseUser)
 
-    if (!tallennettuNimi) {
-      tallennettuNimi = luoKoodinimi()
-      localStorage.setItem('codename', tallennettuNimi)
-    }
+      if (firebaseUser) {
+        const avain = 'codename_' + firebaseUser.uid
+        let tallennettuNimi = localStorage.getItem(avain)
 
-    asetaKoodinimi(tallennettuNimi)
+        if (!tallennettuNimi) {
+          tallennettuNimi = luoKoodinimi()
+          localStorage.setItem(avain, tallennettuNimi)
+        }
+
+        asetaKoodinimi(tallennettuNimi)
+      } else {
+        asetaKoodinimi('')
+      }
+    })
+
+    return () => unsubscribe()
   }, [])
 
   return (
     <div className="container">
-      <h1>Koodinimigeneraattori</h1>
-      <h2>Tervetuloa!</h2>
-      <p>Koodinimesi on:</p>
-      <h2>{koodinimi}</h2>
+      {user ? (
+        <>
+          <h1>Koodinimigeneraattori</h1>
+          <h2>Tervetuloa, {koodinimi}</h2>
+          <p>Sähköposti: {user.email}</p>
+          <button onClick={logout}>Kirjaudu ulos</button>
+        </>
+      ) : (
+        <LoginForm />
+      )}
     </div>
   )
 }
+
 export default App
